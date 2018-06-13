@@ -684,7 +684,7 @@ namespace Flazor.Formlets
 
   public static partial class Tags
   {
-    static readonly Tag inputTag = new Tag("input");
+    static readonly Tag inputTag  = new Tag("input");
 
     public static Formlet<Unit> Br<T>() =>
       Formlet.Tag("br");
@@ -732,6 +732,31 @@ namespace Flazor.Formlets
             : "is-invalid"
             ;
           return tr.WithVisualState(new FormletVisualState.WithAttributes(tr.VisualState, "class", value));
+        };
+
+      static FormletVisualState DivClass(FormletVisualState visualState, string className)
+      {
+        return
+          new FormletVisualState.WithAttributes(
+            new FormletVisualState.Element(
+                visualState
+              , "div"
+              )
+            , "class"
+            , className
+          );
+      }
+
+      public static Formlet<T> WithLabeledBox<T>(this Formlet<T> t, string label) =>
+        (context, failureContext, state) =>
+        {
+          var tr = t(context, failureContext.Cons(label), state);
+          var vs = DivClass(
+              new FormletVisualState.Fork(
+                  new FormletVisualState.WithContent(DivClass(new FormletVisualState.Empty(), "card-header"), label)
+                , DivClass(tr.VisualState, "card-body"))
+            , "card mb-3");
+          return tr.WithVisualState(vs);
         };
     }
   }

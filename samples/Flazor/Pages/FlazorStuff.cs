@@ -74,6 +74,29 @@
     }
   }
 
+  public class Customer
+  {
+    public readonly string FirstName  ;
+    public readonly string LastName   ;
+    public readonly string SocialNo   ;
+
+    public Customer(
+        string firstName
+      , string lastName
+      , string socialNo
+      )
+    {
+      FirstName = firstName ;
+      LastName  = lastName  ;
+      SocialNo  = socialNo  ;
+    }
+
+    public override string ToString()
+    {
+      return $"(Customer, {FirstName}, {LastName}, {SocialNo})";
+    }
+  }
+
   public class Address
   {
     public readonly string CarryOver  ;
@@ -130,7 +153,14 @@
 
       var ts = FormletState.Empty.Value;
 
-      var t = Formlet.Map(
+      var customer = Formlet.Map(
+          NotEmpty  ("id-first-name"  , "First name")
+        , NotEmpty  ("id-last-name"   , "Last name" )
+        , NotEmpty  ("id-social-no"   , "Social no" )
+        , (fn, ln, sno) => new Customer(fn, ln, sno)
+        ).WithLabeledBox("Customer");
+
+      Formlet<Address> Address(string label) => Formlet.Map(
           Any       ("id-co"      , "C/O"     )
         , NotEmpty  ("id-line1"   , "Line 1"  )
         , Any       ("id-line2"   , "Line 2"  )
@@ -140,7 +170,12 @@
         , Any       ("id-county"  , "County"  )
         , NotEmpty  ("id-country" , "Country" )
         , (co, l1, l2, l3, z, c1, c2, c3) => new Address(co, l1, l2, l3, z, c1, c2, c3)
-        );
+        ).WithLabeledBox(label);
+
+      var t = customer
+        .AndAlso(Address("Invoice address"))
+        .AndAlso(Address("Delivery address"))
+        ;
 
       return b => {
         var tr = t.BuildUp(b, notify, ts);
