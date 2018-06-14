@@ -180,7 +180,8 @@
           ;
 
         var optionalAddress = Input.CheckBox(
-            false
+            "Use separate delivery address?"
+          , false
           , address.Just()
           , Formlet.Nothing<Address>()).Unpack()
           ;

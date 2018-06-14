@@ -650,11 +650,11 @@ namespace Flazor.Formlets
 
           var visualState =
             new FormletVisualState.WithContent(
-              new FormletVisualState.WithAttributes(
-                  new FormletVisualState.Element(FormletVisualState.Empty.Value, "label")
-                , "for", @for
-                ),
-                label
+                new FormletVisualState.WithAttributes(
+                    new FormletVisualState.Element(FormletVisualState.Empty.Value, "label")
+                  , "for", @for
+                  )
+              , label
               );
 
           var tr = t(context, ffc, state);
@@ -713,7 +713,7 @@ namespace Flazor.Formlets
     {
       static readonly Tag inputTag  = new Tag("input");
 
-      public static Formlet<T> CheckBox<T>(bool initial, T onTrue, T onFalse) =>
+      public static Formlet<T> CheckBox<T>(string label, bool initial, T onTrue, T onFalse) =>
         (context, failureContext, state) =>
           {
             var input = state as FormletState.Input;
@@ -724,10 +724,16 @@ namespace Flazor.Formlets
               ;
 
             var visualState =
-              new FormletVisualState.WithAttributes(
-                  new FormletVisualState.InputElement(FormletVisualState.Empty.Value, "input", ts)
-                , "class" , "form-check-input"
-                , "type"  , "checkbox"
+              new FormletVisualState.WithContent(
+                  new FormletVisualState.Element(
+                      new FormletVisualState.WithAttributes(
+                          new FormletVisualState.InputElement(FormletVisualState.Empty.Value, "input", ts)
+                        , "class" , "form-check-input"
+                        , "type"  , "checkbox"
+                        )
+                    , "label"
+                    )
+                , label
                 );
 
             var v = ts.Value is bool ? (bool)ts.Value : false;
