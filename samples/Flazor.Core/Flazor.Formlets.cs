@@ -195,13 +195,15 @@ namespace Flazor.Formlets
 
     public sealed partial class InputElement : FormletVisualState
     {
-      public readonly string              Tag  ;
-      public readonly FormletState.Input  Input;
+      public readonly FormletVisualState  VisualState ;
+      public readonly string              Tag         ;
+      public readonly FormletState.Input  Input       ;
 
-      public InputElement(string tag, FormletState.Input input)
+      public InputElement(FormletVisualState visualState, string tag, FormletState.Input input)
       {
-        Tag   = tag   ;
-        Input = input ;
+        VisualState = visualState ;
+        Tag         = tag         ;
+        Input       = input       ;
       }
 
       public override void BuildUp(Action<NotifyType> notify, RenderTreeBuilder builder, ref int seq, ImmutableList<string> contents, ImmutableList<string[]> attributes)
@@ -210,21 +212,23 @@ namespace Flazor.Formlets
 
         Action<UIEventArgs> handler = args =>
         {
+          Console.WriteLine($"OnChange: {args}");
           var a = args as UIChangeEventArgs;
           if (a != null)
           {
-            var v = a.Value as string ?? "";
-            Input.Value = v;
+            Input.Value = a.Value;
             notify(NotifyType.Change);
           }
         };
 
         builder.AddAttribute(seq++, "onchange", handler);
 
+        VisualState.BuildUp(notify, builder, ref seq, ImmutableList.Empty<string>(), ImmutableList.Empty<string[]>());
+
         builder.CloseElement();
       }
 
-      public override string ToString() => $"(InputElement, {Tag}, {Input})";
+      public override string ToString() => $"(InputElement, {VisualState}, {Tag}, {Input})";
     }
 
     public static FormletVisualState Join(FormletVisualState left, FormletVisualState right) =>
@@ -313,9 +317,9 @@ namespace Flazor.Formlets
     public sealed partial class Input : FormletState
     {
       public readonly Tag Tag   ;
-      public string       Value ;  // Intentionally mutable
+      public object       Value ;  // Intentionally mutable
 
-      public Input(Tag tag, string value)
+      public Input(Tag tag, object value)
       {
         Tag     = tag   ;
         Value   = value ;
@@ -442,6 +446,9 @@ namespace Flazor.Formlets
     public static Formlet<T> Value<T>(T v) => (context, failureContext, state) =>
       Success(v, FormletVisualState.Empty.Value, FormletState.Empty.Value);
 
+    public static Formlet<Maybe<T>> Nothing<T>() =>
+      Value(Maybe.Nothing<T>());
+
     public static Formlet<T> FailWith<T>(T v, string message) =>
       (context, failureContext, state) =>
         Result(
@@ -477,8 +484,11 @@ namespace Flazor.Formlets
       (context, failureContext, state) =>
         {
           var tr = t(context, failureContext, state);
-          return Result(m(tr.Value), tr.FailureState, tr.VisualState, tr.State);
+          return tr.WithValue(m(tr.Value));
         };
+
+    public static Formlet<Maybe<T>> Just<T>(this Formlet<T> t) =>
+      t.Map(v => Maybe.Just(v));
 
     public static Formlet<(T left, U right)> AndAlso<T, U>(this Formlet<T> t, Formlet<U> u) =>
       (context, failureContext, state) =>
@@ -684,8 +694,6 @@ namespace Flazor.Formlets
 
   public static partial class Tags
   {
-    static readonly Tag inputTag  = new Tag("input");
-
     public static Formlet<Unit> Br<T>() =>
       Formlet.Tag("br");
 
@@ -697,30 +705,87 @@ namespace Flazor.Formlets
 
     public static Formlet<T> P<T>(Formlet<T> t) =>
       t.NestWithTag("p");
-
-    public static Formlet<string> Input(string placeholder, string initial) =>
-      (context, failureContext, state) =>
-        {
-          var input = state as FormletState.Input;
-
-          var ts = input != null && inputTag == input.Tag
-            ? input
-            : new FormletState.Input(inputTag, initial)
-            ;
-
-          var visualState =
-            new FormletVisualState.WithAttributes(
-                new FormletVisualState.InputElement("input", ts)
-              , "placeholder", placeholder
-              , "type", "text"
-              );
-
-          return Formlet.Success(ts.Value, visualState, ts);
-        };
   }
 
   namespace Bootstrap
   {
+    public static class Input
+    {
+      static readonly Tag inputTag  = new Tag("input");
+
+      public static Formlet<T> CheckBox<T>(bool initial, T onTrue, T onFalse) =>
+        (context, failureContext, state) =>
+          {
+            var input = state as FormletState.Input;
+
+            var ts = input != null && inputTag == input.Tag
+              ? input
+              : new FormletState.Input(inputTag, initial)
+              ;
+
+            var visualState =
+              new FormletVisualState.WithAttributes(
+                  new FormletVisualState.InputElement(FormletVisualState.Empty.Value, "input", ts)
+                , "class" , "form-check-input"
+                , "type"  , "checkbox"
+                );
+
+            var v = ts.Value is bool ? (bool)ts.Value : false;
+
+            return Formlet.Success(v ? onTrue : onFalse, visualState, ts);
+          };
+
+      public static Formlet<string> Text(string placeholder, string initial) =>
+        (context, failureContext, state) =>
+          {
+            var input = state as FormletState.Input;
+
+            var ts = input != null && inputTag == input.Tag
+              ? input
+              : new FormletState.Input(inputTag, initial)
+              ;
+
+            var visualState =
+              new FormletVisualState.WithAttributes(
+                  new FormletVisualState.InputElement(FormletVisualState.Empty.Value, "input", ts)
+                , "placeholder", placeholder
+                , "class" , "form-control"
+                , "type"  , "text"
+                );
+
+            var v = ts.Value as string ?? "";
+
+            return Formlet.Success(v, visualState, ts);
+          };
+
+      /*
+      public static Formlet<T> Select<T>(params (string, T)[] options)
+      {
+        if (options.Length == 0)
+        {
+          throw new Exception($"At least 1 option required");
+        }
+
+        return (context, failureContext, state) =>
+          {
+            var input = state as FormletState.Input;
+
+            var ts = input != null && inputTag == input.Tag
+              ? input
+              : new FormletState.Input(inputTag, initial)
+              ;
+
+            var visualState =
+              new FormletVisualState.WithAttributes(
+                  new FormletVisualState.InputElement("select", ts)
+                , "class" , "form-control"
+                );
+
+            return Formlet.Success(ts.Value, visualState, ts);
+          };
+      }*/
+
+    }
     public static partial class BootstrapFormlet
     {
       public static Formlet<T> WithValidation<T>(this Formlet<T> t) =>
@@ -742,8 +807,7 @@ namespace Flazor.Formlets
                 visualState
               , "div"
               )
-            , "class"
-            , className
+            , "class", className
           );
       }
 
@@ -753,11 +817,12 @@ namespace Flazor.Formlets
           var tr = t(context, failureContext.Cons(label), state);
           var vs = DivClass(
               new FormletVisualState.Fork(
-                  new FormletVisualState.WithContent(DivClass(new FormletVisualState.Empty(), "card-header"), label)
+                  new FormletVisualState.WithContent(DivClass(FormletVisualState.Empty.Value, "card-header"), label)
                 , DivClass(tr.VisualState, "card-body"))
             , "card mb-3");
           return tr.WithVisualState(vs);
         };
+
     }
   }
 }
